@@ -6,23 +6,26 @@ import numpy as np
 
 def source_bernoulli(N, p):
     """
-    Generates a sequence of independent and identically distributed (i.i.d.) Bernoulli bits.
+    Generates a sequence of i.i.d. Bernoulli bits.
     
+    Bits are 1 with probability (1 - p) and 0 with probability p.
+    This corresponds to the mapper's expectation of bit distributions.
+
     Args:
         N (int): Number of bits to generate.
-        p (float): Probability of a bit being 0. Bits are generated using np.random.rand(N) > p.
+        p (float): Bernoulli parameter (threshold for random generation).
         
     Returns:
-        np.ndarray: Array of N bits (0s and 1s).
+        np.ndarray: Array of N binary integers (0s and 1s).
     """
     return np.where(np.random.rand(N) > p, 1, 0)
 
 def source_prbs(N):
     """
-    Generates a Pseudo-Random Binary Sequence (PRBS) using a 15-bit Linear Feedback Shift Register (LFSR).
-    This implements a PRBS15 sequence which is common in telecommunications testing.
+    Generates a PRBS15 sequence using a Linear Feedback Shift Register (LFSR).
     
-    The generator polynomial is 1 + x^14 + x^15.
+    This is useful for deterministic testing of the communication system.
+    Generator polynomial: 1 + x^14 + x^15.
     
     Args:
         N (int): Number of bits to generate.
@@ -31,22 +34,13 @@ def source_prbs(N):
         np.ndarray: Array of N bits (0s and 1s).
     """
     bit_sequence = np.zeros(N, dtype=int)
+    # LFSR Seed (must be non-zero)
+    reg = 0x01f1 
 
-    # Initial state of the 15-bit shift register (seed)
-    # 0x01f1 is an arbitrary non-zero starting point.
-    start = 0x01f1 
-    a = start
-
-    for i in range(0, N):
-        # Extract the current output bit (least significant bit of the register)
-        bit_sequence[i] = a & 1
-
-        # Feedback logic for PRBS15: XOR the 15th bit (bit 14) and 14th bit (bit 13)
-        # Note: Bits are 0-indexed, so x^15 corresponds to bit 14.
-        new_bit = (((a >> 14) ^ (a >> 13)) & 1)
-        
-        # Shift the register to the left by 1 and insert the feedback bit at the beginning.
-        # Mask with 0x7fff (15 ones) to keep the register at 15 bits.
-        a = ((a << 1) | new_bit) & 0x7fff
+    for i in range(N):
+        bit_sequence[i] = reg & 1
+        # PRBS15 feedback logic
+        feedback = ((reg >> 14) ^ (reg >> 13)) & 1
+        reg = ((reg << 1) | feedback) & 0x7fff
         
     return bit_sequence

@@ -80,91 +80,98 @@ def fundamental_soliton():
 
 
 # ---------------------------------------------------------------
-# Satsuma–Yajima solitons  q(t,0) = A·sech(t)
+# Breathing snapshots (A=2)
 # ---------------------------------------------------------------
-def sy_solitons():
-    # --------------- Simulation parameters --------------------
-    T      = 40.0
-    N      = 4096
-    dt     = T / N
-    t      = np.linspace(-T / 2, T / 2, N, endpoint=False)
+def sy_breathing_snapshots(A=2.0):
+    # Dynamic snapshot selection for Satsuma-Yajima breathing solitons.
+    # We find the recovery point (z_recov) by minimizing the L2 distance
+    # to the initial shape, then find max compression within that period.
 
-    z_max  = 2 * np.pi              # propagate one full 'super-period'
-    Nz     = 200                    # number of z snapshots for the space-time map
+    T = 60.0
+    N = 4096
+    t = np.linspace(-T / 2, T / 2, N, endpoint=False)
+    q_init = A / np.cosh(t)
+    abs_init = np.abs(q_init)
+
+    z_max = 2.5  # pi/2 is approx 1.57
+    Nz = 300
     z_vals = np.linspace(0, z_max, Nz + 1)
+    
+    qs = [q_init.copy()]
+    diff_norms = [0.0]
+    peak_vals = [abs_init.max()]
+    
+    print(f"\n  Analyzing breather A={A} ...")
+    q_current = q_init.copy()
+    
+    for iz in range(1, Nz + 1):
+        dz = z_vals[iz] - z_vals[iz - 1]
+        q_current = propagate(t, q_current, z=dz, Nsteps=40)
+        qs.append(q_current.copy())
+        
+        abs_curr = np.abs(q_current)
+        # L2 norm of the difference in magnitude
+        diff = np.sqrt(np.sum((abs_curr - abs_init)**2) * (t[1]-t[0]))
+        diff_norms.append(diff)
+        peak_vals.append(abs_curr.max())
 
-    # A values to explore
-    A_values = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0]
+    diff_norms = np.array(diff_norms)
+    peak_vals = np.array(peak_vals)
 
-    fig_st, axes_st = plt.subplots(2, 4, figsize=(16, 7))
-    axes_st = axes_st.flatten()
+    # 1. Find Recovery (z_recov): 
+    # For A=integer, period is pi/2. For others, we look for the best return
+    # to initial state after a significant travel.
+    if A > 1.2:
+        # We look for the minimum in a window excluding the very beginning
+        # and focusing on the range where a cycle should occur.
+        search_idx = np.where(z_vals > 0.4)[0]
+        if len(search_idx) > 0:
+            idx_recov = search_idx[np.argmin(diff_norms[search_idx])]
+        else:
+            idx_recov = Nz
+    else:
+        idx_recov = 0
 
-    for idx, A in enumerate(A_values):
+    # 2. Find Compression (z_comp):
+    # Max peak amplitude in the interval [0, idx_recov]
+    idx_comp = np.argmax(peak_vals[:idx_recov+1])
 
-        q_current = A / np.cosh(t)  # A·sech(t)
+    z_snap = {
+        'Initial': 0.0,
+        'Compression': z_vals[idx_comp],
+        'Recovery': z_vals[idx_recov]
+    }
+    
+    snapshots = {
+        'Initial': qs[0],
+        'Compression': qs[idx_comp],
+        'Recovery': qs[idx_recov]
+    }
 
-        # Build space-time array  [Nz+1, N]
-        qt_map = np.zeros((Nz + 1, N))
-        qt_map[0] = np.abs(q_current)
+    # --------------- Plots ------------------------------------
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    snap_order = ['Initial', 'Compression', 'Recovery']
+    colors = ['tab:blue', 'tab:orange', 'tab:green']
+    t_win = np.abs(t) <= 10
 
-        for iz in range(1, Nz + 1):
-            dz_step = z_vals[iz] - z_vals[iz - 1]
-            q_current = propagate(t, q_current, z=dz_step, Nsteps=50)
-            qt_map[iz] = np.abs(q_current)
+    for ax, label, col in zip(axes, snap_order, colors):
+        z_v = z_snap[label]
+        q_v = snapshots[label]
+        ax.plot(t[t_win], np.abs(q_v[t_win]), color=col, linewidth=1.5, label='|q(z)|')
+        if label != 'Initial':
+            ax.plot(t[t_win], np.abs(snapshots['Initial'][t_win]), '--',
+                    color='gray', alpha=0.5, label='z=0')
+        ax.set_title(f'{label}\n(z = {z_v:.3f})')
+        ax.set_xlabel('t'); ax.set_ylabel('|q|')
+        ax.grid(True); ax.legend(fontsize=8)
 
-        # Find period by looking at the peak amplitude vs z
-        peak_vs_z = qt_map.max(axis=1)
-
-        # Display the space-time map
-        t_idx = np.abs(t) <= 8
-        ax = axes_st[idx]
-        im = ax.imshow(qt_map[:, t_idx].T,
-                       aspect='auto',
-                       origin='lower',
-                       extent=[0, z_max, t[t_idx][0], t[t_idx][-1]],
-                       cmap='inferno')
-        ax.set_title(f'A = {A}')
-        ax.set_xlabel('z'); ax.set_ylabel('t')
-        fig_st.colorbar(im, ax=ax, shrink=0.7)
-
-        print(f"\n  A = {A}:")
-        print(f"    Peak amplitude at z=0:      {peak_vs_z[0]:.4f}  (= A = {A})")
-        print(f"    Peak amplitude at z=pi/2:   {peak_vs_z[Nz // 4]:.4f}")
-        print(f"    Peak amplitude at z=pi:     {peak_vs_z[Nz // 2]:.4f}")
-        print(f"    Peak amplitude at z=2pi:    {peak_vs_z[-1]:.4f}")
-
-    plt.suptitle('Question 32: Satsuma–Yajima solitons  q(t,0) = A·sech(t)  –  |q(t,z)|',
-                 fontsize=11, fontweight='bold')
+    plt.suptitle(f'Dynamic Breather Snapshots (A = {A})\n'
+                 'Detected via pulse-shape similarity', fontsize=12, fontweight='bold')
     plt.tight_layout()
-    plt.savefig('soliton_q32_map.png', dpi=150)
-    # plt.show()
-    print("\n  Saved: soliton_q32_map.png")
-
-    # --------------- Peak-amplitude vs z for all A ------------
-
-    fig2, ax2 = plt.subplots(figsize=(10, 5))
-    A_plot = [1, 2, 3, 4, 5, 6]
-    colors = plt.cm.viridis(np.linspace(0, 0.9, len(A_plot)))
-
-    for A, col in zip(A_plot, colors):
-        q_current = A / np.cosh(t)
-        peak = [np.abs(q_current).max()]
-        for iz in range(1, Nz + 1):
-            dz_step = z_vals[iz] - z_vals[iz - 1]
-            q_current = propagate(t, q_current, z=dz_step, Nsteps=50)
-            peak.append(np.abs(q_current).max())
-        ax2.plot(z_vals, peak, color=col, label=f'A = {A}')
-
-    ax2.axvline(np.pi / 2, color='gray', linestyle='--', linewidth=0.8, label='z = π/2')
-    ax2.axvline(np.pi,     color='gray', linestyle=':',  linewidth=0.8, label='z = π')
-    ax2.set_xlabel('z (normalized)')
-    ax2.set_ylabel('max|q(t, z)|')
-    ax2.set_title('Peak amplitude vs z  –  Satsuma–Yajima solitons  q(t,0) = A·sech(t)')
-    ax2.legend(ncol=2); ax2.grid(True)
-    plt.tight_layout()
-    plt.savefig('soliton_q32_peak.png', dpi=150)
-    # plt.show()
-    print("  Saved: soliton_q32_peak.png")
+    plt.savefig('soliton_breather_snapshots.png', dpi=150)
+    print(f"  Saved: soliton_breather_snapshots.png (A={A})")
+    print(f"    Compression at z = {z_snap['Compression']:.4f}, peak = {peak_vals[idx_comp]:.2f}")
+    print(f"    Recovery at    z = {z_snap['Recovery']:.4f}, error = {diff_norms[idx_recov]:.4f}")
 
 
 # ---------------------------------------------------------------
@@ -180,7 +187,7 @@ def elastic_collision():
 
     A1     = 1.0
     A2     = 2.0
-    omega0 = 1.0                    # carrier frequency
+    omega0 = 2.5                    # carrier frequency
     t0     = 8.0                    # initial separation
 
     z_end  = 3.0                    # total propagation distance (covers full collision)
@@ -267,7 +274,7 @@ def elastic_collision():
         peak = np.abs(q_snap).max()
         print(f"  z = {z_val:.3f} ({label}):  max|q| = {peak:.4f}")
 
-    plt.suptitle('Question 33: Elastic soliton collision\n'
+    plt.suptitle('Elastic soliton collision\n'
                  f'q(t,0) = A₁·exp(+jω₀t)·sech[A₁(t−t₀)] + A₂·exp(−jω₀t)·sech[A₂(t+t₀)]\n'
                  f'A₁={A1}, A₂={A2}, ω₀={omega0}, t₀={t0}',
                  fontsize=10, fontweight='bold')
@@ -302,9 +309,9 @@ def elastic_collision():
 
 def main_solitons():
 
-    fundamental_soliton()
-    sy_solitons()
-    elastic_collision()
+    #fundamental_soliton()
+    sy_breathing_snapshots(A=3.5)
+    #elastic_collision()
 
 
 if __name__ == "__main__":

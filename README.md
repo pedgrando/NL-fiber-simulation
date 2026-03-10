@@ -1,10 +1,9 @@
-Assumptions for the system:
-- Main metric: BER
-- We assume we receive bits, map them, modulate a carrier with the symbols, transmit them through the channel, equalize the received signal, demodulate it, 
+This simulation framework includes various functions structured in files based on their functionality.
 
+It also has lots of simulation scripts, that may be used to reproduce the results seen in the report. Sometimes, one may need to alter the scripts, as one script can be used to produce many different results.
 
+Finally, this is just a skelleton done for a masters class. They may be several flaws and inconsistencies in the contents of this project.
 
-# Question 5
+Thank you for taking the time to read this, and for your interest in the project.
 
-Consider a Bernoulli stochastic process: b^N=(b_o, b_1, ..., b_N-1)
-
+Best regards

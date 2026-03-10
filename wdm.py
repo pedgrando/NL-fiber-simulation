@@ -12,7 +12,7 @@ def mux(t, Q, B0):
     Implements equation (20) from the lab notes:
         q(t, 0) = sum_{k=k1}^{k2} q_k(t, 0) * exp(j * 2*pi * k * B0 * t)
 
-    User k is centred at frequency f = k * B0 and occupies the band
+    User k is centered at frequency f = k * B0 and occupies the band
     [k*B0 - B0/2, k*B0 + B0/2].
 
     The user index runs symmetrically around zero:

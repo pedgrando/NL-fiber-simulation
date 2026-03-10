@@ -120,7 +120,7 @@ def main():
     # --------------- Equalizer: invert channel ----------------
 
     # For dispersive channel, equalization = inverse transfer function
-    qzf_eq, qzt_eq = dbp_equalizer(t, qzt, z = L, Nsteps = Nsteps, gamma = gamma, betav = betav, f = f, B = B)
+    qzt_eq, qzf_eq = dbp_equalizer(t, qzt, z = L, Nsteps = Nsteps, gamma = gamma, betav = betav, f = f, B = B)
 
     # --------------- Plot equalized signal --------------------
 
